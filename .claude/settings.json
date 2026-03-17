@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init)",
+      "Bash(git remote add origin https://github.com/Jvsong/Sports-analysis.git)",
+      "Bash(git fetch origin)",
+      "Bash(git add .)"
+    ],
+    "additionalDirectories": [
+      "F:\\Desk\\garmin"
+    ]
+  }
+}

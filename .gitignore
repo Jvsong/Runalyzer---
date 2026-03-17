@@ -1,0 +1,113 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# React
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.eslintcache
+coverage/
+*.log
+logs/
+
+# Build
+build/
+dist/
+out/
+
+# OS
+Thumbs.db
+.DS_Store
+*.db
+*.sqlite
+
+# Backend specific
+*.db
+*.sqlite3
+
+# Frontend specific
+.cache/
+.tmp/
+.temp/
+
+# Uploaded files
+uploads/
+temp/
+tmp/
+
+# Secrets
+*.env
+*.key
+*.pem
+*.crt
+*.cer
+
+# Logs
+*.log
+
+# Sample data (optional to ignore)
+sample_data/*.fit
+sample_data/*.gpx
+# sample_data/*.csv  # Keep CSV examples
+
+# Windows
+Desktop.ini
+._*
+
+# Linux
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Ignore IDE settings but keep project settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

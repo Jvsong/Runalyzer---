@@ -1,0 +1,146 @@
+/* App.css */
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.App-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 3rem 0;
+  margin-bottom: 2rem;
+}
+
+.App-header h1 {
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.App-header p {
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+.card {
+  border: none;
+  border-radius: 15px;
+  transition: transform 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.metric-card {
+  border-left: 4px solid #667eea;
+  padding: 1rem;
+  height: 100%;
+}
+
+.metric-card .metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.metric-card .metric-label {
+  color: #666;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.chart-container {
+  background: white;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1.5rem;
+}
+
+.zone-card {
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.zone-card:hover {
+  transform: scale(1.02);
+}
+
+.zone-z1 { background: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%); }
+.zone-z2 { background: linear-gradient(135deg, #ffd3b6 0%, #ffaaa5 100%); }
+.zone-z3 { background: linear-gradient(135deg, #ff8b94 0%, #ff6b6b 100%); }
+.zone-z4 { background: linear-gradient(135deg, #a283c4 0%, #8a63d2 100%); }
+.zone-z5 { background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%); }
+
+.suggestion-card {
+  border-left: 4px solid #4CAF50;
+  background-color: #f8f9fa;
+}
+
+.upload-area {
+  border: 3px dashed #ddd;
+  border-radius: 15px;
+  padding: 3rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.upload-area:hover {
+  border-color: #667eea;
+  background-color: #f8f9ff;
+}
+
+.upload-area.active {
+  border-color: #4CAF50;
+  background-color: #e8f5e9;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  padding: 0.75rem 2rem;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 50px;
+  height: 50px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .App-header {
+    padding: 2rem 0;
+  }
+
+  .App-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .metric-card .metric-value {
+    font-size: 1.5rem;
+  }
+
+  .upload-area {
+    padding: 2rem;
+  }
+}

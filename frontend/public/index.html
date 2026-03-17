@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#667eea" />
+    <meta
+      name="description"
+      content="Runalyzer - 专业的跑步训练数据分析工具"
+    />
+    <meta
+      name="keywords"
+      content="跑步分析, 心率分析, 配速分析, 训练数据, FIT文件, GPX文件"
+    />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>Runalyzer - 跑步训练分析工具</title>
+    <style>
+      /* 预加载样式 */
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+          'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+          sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background-color: #f8f9fa;
+      }
+
+      .loading-screen {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+        margin-bottom: 20px;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .loading-text {
+        font-size: 1.2rem;
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>您需要启用JavaScript才能运行此应用程序。</noscript>
+    <div id="root">
+      <div class="loading-screen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Runalyzer 加载中...</div>
+      </div>
+    </div>
+    <!--
+      这个HTML文件是一个模板。
+      您可以在其中添加我们构建应用程序所需的任何内容。
+      下面的部分会在构建过程中被React替换。
+    -->
+  </body>
+</html>

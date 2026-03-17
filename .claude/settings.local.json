@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p backend)",
+      "Bash(mkdir -p frontend)",
+      "Bash(mkdir -p sample_data)"
+    ]
+  }
+}
