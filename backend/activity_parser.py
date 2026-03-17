@@ -146,6 +146,70 @@ def parse_fit_file(file_path: str) -> Dict[str, Any]:
         }
     }
 
+def extract_gpx_extension_data(point) -> Dict[str, Any]:
+    """
+    从GPX点扩展数据中提取心率等数据
+
+    参数:
+        point: gpxpy GPX点对象
+
+    返回:
+        包含提取数据的字典
+    """
+    data = {'heart_rate': None, 'cadence': None, 'temperature': None}
+
+    if not hasattr(point, 'extensions') or not point.extensions:
+        return data
+
+    # 尝试解析扩展数据
+    # GPX扩展可能包含各种格式的数据，常见的有：
+    # 1. <gpxtpx:TrackPointExtension> 格式
+    # 2. <ns3:TrackPointExtension> 格式
+    # 3. 其他自定义格式
+
+    try:
+        # 将扩展转换为字符串进行简单解析
+        ext_str = str(point.extensions)
+
+        # 简单的心率提取逻辑（实际应用中可能需要更复杂的解析）
+        import re
+
+        # 尝试匹配心率模式
+        hr_patterns = [
+            r'<gpxtpx:hr>(\d+)</gpxtpx:hr>',
+            r'<ns3:hr>(\d+)</ns3:hr>',
+            r'<heartrate>(\d+)</heartrate>',
+            r'<hr>(\d+)</hr>',
+            r'<HeartRate>(\d+)</HeartRate>'
+        ]
+
+        for pattern in hr_patterns:
+            match = re.search(pattern, ext_str)
+            if match:
+                data['heart_rate'] = float(match.group(1))
+                break
+
+        # 尝试匹配步频模式
+        cadence_patterns = [
+            r'<gpxtpx:cad>(\d+)</gpxtpx:cad>',
+            r'<ns3:cad>(\d+)</ns3:cad>',
+            r'<cadence>(\d+)</cadence>',
+            r'<Cadence>(\d+)</Cadence>'
+        ]
+
+        for pattern in cadence_patterns:
+            match = re.search(pattern, ext_str)
+            if match:
+                data['cadence'] = float(match.group(1))
+                break
+
+    except Exception:
+        # 解析失败，返回默认值
+        pass
+
+    return data
+
+
 def parse_gpx_file(file_path: str) -> Dict[str, Any]:
     """
     解析GPX文件
@@ -166,14 +230,25 @@ def parse_gpx_file(file_path: str) -> Dict[str, Any]:
     latitudes = []
     longitudes = []
     altitudes = []
+    heart_rates = []
+    cadences = []
 
     for track in gpx.tracks:
         for segment in track.segments:
             for point in segment.points:
-                timestamps.append(point.time)
+                # 检查必要的数据是否存在
+                if point.latitude is None or point.longitude is None:
+                    continue  # 跳过无效的GPS点
+
+                timestamps.append(point.time if point.time is not None else None)
                 latitudes.append(point.latitude)
                 longitudes.append(point.longitude)
-                altitudes.append(point.elevation)
+                altitudes.append(point.elevation if point.elevation is not None else np.nan)
+
+                # 尝试从GPX扩展中提取心率等数据
+                ext_data = extract_gpx_extension_data(point)
+                heart_rates.append(ext_data['heart_rate'] if ext_data['heart_rate'] is not None else np.nan)
+                cadences.append(ext_data['cadence'] if ext_data['cadence'] is not None else np.nan)
 
     # 计算距离和速度
     distances = [0.0]
@@ -196,11 +271,19 @@ def parse_gpx_file(file_path: str) -> Dict[str, Any]:
         distances.append(distances[-1] + distance_km)
 
         # 计算速度 (km/h)
-        if i > 0 and timestamps[i] and timestamps[i-1]:
-            time_diff = (timestamps[i] - timestamps[i-1]).total_seconds() / 3600  # 小时
-            if time_diff > 0:
-                speeds.append(distance_km / time_diff)
-            else:
+        # 检查时间戳是否有效
+        if (i < len(timestamps) and timestamps[i] is not None and
+            i-1 < len(timestamps) and timestamps[i-1] is not None):
+
+            try:
+                time_diff = (timestamps[i] - timestamps[i-1]).total_seconds() / 3600  # 小时
+                # 添加小阈值避免浮点精度问题
+                if time_diff > 0.0001:  # 0.36秒
+                    speeds.append(distance_km / time_diff)
+                else:
+                    speeds.append(0)
+            except (AttributeError, TypeError):
+                # 如果时间戳计算失败，设置为0速度
                 speeds.append(0)
         else:
             speeds.append(0)
@@ -232,7 +315,7 @@ def parse_gpx_file(file_path: str) -> Dict[str, Any]:
         'metadata': {
             'file_type': 'GPX',
             'data_points': len(df),
-            'has_hr': False,
+            'has_hr': any(not pd.isna(hr) for hr in heart_rates) if heart_rates else False,
             'has_gps': True,
             'has_altitude': True,
             'timestamp_range': {
