@@ -46,6 +46,25 @@ const SuggestionsDisplay = ({ suggestions }) => {
     }
   };
 
+  const renderSuggestionDetails = (_suggestion, type) => {
+    const details = {
+      '心率相关': '基于您的心率数据分析得出，关注训练强度和心血管负荷。',
+      '配速相关': '基于配速变化和稳定性分析，关注跑步经济性和速度控制。',
+      '步频相关': '基于步频数据分析，关注跑步技术和效率。',
+      '训练量相关': '基于训练距离和时间分析，关注训练负荷和恢复需求。',
+      '恢复相关': '关注身体恢复、营养补充和避免过度训练。',
+      '训练负荷': '基于TRIMP等训练负荷指标，关注整体训练压力。',
+      '综合建议': '基于整体训练表现的综合评估。'
+    };
+
+    return (
+      <p className="card-text text-muted small mb-0">
+        <i className="bi bi-info-circle me-1"></i>
+        {details[type] || '基于您的训练数据分析得出的建议。'}
+      </p>
+    );
+  };
+
   const suggestionCards = suggestions.map((suggestion, index) => {
     const iconClass = getSuggestionIcon(suggestion);
     const type = getSuggestionType(suggestion);
@@ -73,25 +92,6 @@ const SuggestionsDisplay = ({ suggestions }) => {
       </div>
     );
   });
-
-  const renderSuggestionDetails = (suggestion, type) => {
-    const details = {
-      '心率相关': '基于您的心率数据分析得出，关注训练强度和心血管负荷。',
-      '配速相关': '基于配速变化和稳定性分析，关注跑步经济性和速度控制。',
-      '步频相关': '基于步频数据分析，关注跑步技术和效率。',
-      '训练量相关': '基于训练距离和时间分析，关注训练负荷和恢复需求。',
-      '恢复相关': '关注身体恢复、营养补充和避免过度训练。',
-      '训练负荷': '基于TRIMP等训练负荷指标，关注整体训练压力。',
-      '综合建议': '基于整体训练表现的综合评估。'
-    };
-
-    return (
-      <p className="card-text text-muted small mb-0">
-        <i className="bi bi-info-circle me-1"></i>
-        {details[type] || '基于您的训练数据分析得出的建议。'}
-      </p>
-    );
-  };
 
   const renderTrainingPrinciples = () => (
     <div className="training-principles mt-4">

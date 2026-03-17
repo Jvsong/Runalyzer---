@@ -3,7 +3,17 @@
     "allow": [
       "Bash(mkdir -p backend)",
       "Bash(mkdir -p frontend)",
-      "Bash(mkdir -p sample_data)"
+      "Bash(mkdir -p sample_data)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m py_compile main.py)",
+      "Bash(python -c \"import uvicorn; uvicorn.run\\(''main:app'', host=''0.0.0.0'', port=8000, reload=False\\)\")",
+      "Bash(curl -s -X POST http://localhost:8000/api/upload-multiple -H \"Content-Type: multipart/form-data\")",
+      "Bash(curl -s -X POST http://localhost:8000/api/ai-consult -H \"Content-Type: application/json\" -d '{\"\"question\"\": \"\"test\"\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/ai-consult -H \"Content-Type: application/json\" -d '{\"\"question\"\": \"\"你好\"\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/ai-consult -H \"Content-Type: application/json\" -d @-)",
+      "Bash(python -m json.tool)",
+      "Bash(find . -name *.env -o -name *.env.*)"
     ]
   }
 }

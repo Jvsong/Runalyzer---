@@ -24,6 +24,11 @@ def analyze_activity(activity_data: Dict[str, Any]) -> Dict[str, Any]:
     if metrics['has_hr_data']:
         hr_zones = analyze_hr_zones(df)
 
+    # 计算高级指标
+    if metrics['has_hr_data']:
+        advanced_metrics = calculate_advanced_metrics(df, metrics, hr_zones)
+        metrics.update(advanced_metrics)
+
     # 准备时间序列数据（采样以减少数据量）
     time_series = prepare_time_series(df)
 
@@ -408,8 +413,273 @@ def generate_training_suggestions(metrics: Dict[str, Any], hr_zones: List[Dict[s
             elif avg_speed < 6:
                 suggestions.append("🐢 平均速度较慢，可以尝试加入一些速度训练")
 
+    # 基于新高级指标的建议
+    # 1. 训练效果建议
+    training_effect = metrics.get('training_effect')
+    if training_effect is not None:
+        if training_effect >= 4.0:
+            suggestions.append("💪 训练效果很高，这表明进行了高强度训练，确保充分恢复")
+        elif training_effect <= 2.0:
+            suggestions.append("🌿 训练效果较低，适合恢复日或基础有氧训练")
+        else:
+            suggestions.append("✅ 训练效果适中，有助于提升有氧能力和耐力")
+
+    # 2. 强度平衡建议
+    low_intensity_ratio = metrics.get('low_intensity_ratio')
+    high_intensity_ratio = metrics.get('high_intensity_ratio')
+    if low_intensity_ratio is not None and high_intensity_ratio is not None:
+        if high_intensity_ratio > 70:
+            suggestions.append("⚡ 高强度训练比例很高，注意平衡训练强度以避免过度训练")
+        elif low_intensity_ratio > 80:
+            suggestions.append("🐌 低强度训练比例很高，考虑加入一些高强度间歇训练提升速度")
+
+    # 3. 配速稳定性建议
+    pace_cv = metrics.get('pace_cv')
+    if pace_cv is not None:
+        if pace_cv > 15:
+            suggestions.append("📊 配速波动较大，尝试保持更稳定的配速以提高跑步经济性")
+        elif pace_cv < 5:
+            suggestions.append("🎯 配速非常稳定，这表明良好的节奏控制能力")
+
+    # 4. 训练压力分数建议
+    training_stress_score = metrics.get('training_stress_score')
+    if training_stress_score is not None:
+        if training_stress_score > 150:
+            suggestions.append("🏋️‍♂️ 训练压力分数较高，可能需要1-2天完全恢复")
+        elif training_stress_score < 50:
+            suggestions.append("🧘‍♀️ 训练压力分数较低，可以安排更高强度的训练")
+
     # 如果没有其他建议，添加一条积极的反馈
     if not suggestions:
         suggestions.append("👍 训练完成得很好！继续保持规律的训练")
 
-    return suggestions[:5]  # 限制为5条建议
+    # 限制为5条建议，优先显示最重要的建议
+    # 排序逻辑：警告类建议 > 改进建议 > 积极反馈
+    warning_keywords = ['⚠️', '注意', '避免', '风险', '恢复', '平衡']
+    improvement_keywords = ['建议', '尝试', '考虑', '提高', '增加', '减少']
+
+    def suggestion_priority(suggestion):
+        for keyword in warning_keywords:
+            if keyword in suggestion:
+                return 0  # 最高优先级
+        for keyword in improvement_keywords:
+            if keyword in suggestion:
+                return 1  # 中等优先级
+        return 2  # 低优先级（积极反馈）
+
+    suggestions.sort(key=suggestion_priority)
+    return suggestions[:5]
+
+def calculate_advanced_metrics(df: pd.DataFrame, basic_metrics: Dict[str, Any], hr_zones: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    计算高级分析指标
+
+    参数:
+        df: 包含活动数据的DataFrame
+        basic_metrics: 基础指标字典
+        hr_zones: 心率区间分析结果
+
+    返回:
+        包含高级指标的字典
+    """
+    advanced_metrics = {}
+
+    # 1. 训练效果（Training Effect）
+    if basic_metrics.get('has_hr_data', False) and hr_zones:
+        training_effect = calculate_training_effect(hr_zones)
+        advanced_metrics['training_effect'] = training_effect
+
+    # 2. 强度平衡（低强度 vs 高强度）
+    if hr_zones:
+        intensity_balance = calculate_intensity_balance(hr_zones)
+        advanced_metrics.update(intensity_balance)
+
+    # 3. 配速稳定性
+    if basic_metrics.get('has_pace_data', False):
+        pace_stability = calculate_pace_stability(df)
+        advanced_metrics.update(pace_stability)
+
+    # 4. 训练压力分数（更复杂的训练负荷）
+    if (basic_metrics.get('has_hr_data', False) and
+        basic_metrics.get('has_time_data', False) and
+        'training_load' in basic_metrics):
+        # 基于TRIMP的训练压力分数（标准化）
+        training_stress_score = calculate_training_stress_score(
+            basic_metrics['training_load'],
+            basic_metrics.get('total_time_minutes', 0)
+        )
+        advanced_metrics['training_stress_score'] = training_stress_score
+
+    return advanced_metrics
+
+def calculate_training_effect(hr_zones: List[Dict[str, Any]]) -> float:
+    """
+    计算训练效果（Training Effect）
+    基于Garmin Firstbeat算法简化版
+    范围：1.0-5.0（低到高）
+
+    参数:
+        hr_zones: 心率区间分析结果
+
+    返回:
+        训练效果分数
+    """
+    if not hr_zones:
+        return 1.0
+
+    # 计算各区间加权时间
+    weighted_time = 0.0
+    total_time = sum(zone.get('time_minutes', 0) for zone in hr_zones)
+
+    if total_time <= 0:
+        return 1.0
+
+    # 权重系数：随着心率区间增加而增加
+    zone_weights = {
+        'Z1': 0.5,  # 恢复区
+        'Z2': 1.0,  # 有氧区
+        'Z3': 2.0,  # 节奏区
+        'Z4': 3.0,  # 阈值区
+        'Z5': 4.0   # 无氧区
+    }
+
+    for zone in hr_zones:
+        zone_id = zone.get('zone', '')
+        time_minutes = zone.get('time_minutes', 0)
+        weight = zone_weights.get(zone_id, 1.0)
+        weighted_time += time_minutes * weight
+
+    # 计算平均权重
+    avg_weight = weighted_time / total_time
+
+    # 映射到1.0-5.0范围
+    # 假设权重范围0.5-4.0，映射到1.0-5.0
+    min_weight, max_weight = 0.5, 4.0
+    training_effect = 1.0 + (avg_weight - min_weight) * (4.0 / (max_weight - min_weight))
+
+    # 限制在1.0-5.0范围内
+    training_effect = max(1.0, min(5.0, training_effect))
+
+    return round(training_effect, 1)
+
+def calculate_intensity_balance(hr_zones: List[Dict[str, Any]]) -> Dict[str, float]:
+    """
+    计算强度平衡指标
+
+    参数:
+        hr_zones: 心率区间分析结果
+
+    返回:
+        包含强度平衡指标的字典
+    """
+    if not hr_zones:
+        return {}
+
+    # 初始化各区间的总时间
+    zone_times = {f"zone_{zone['zone']}_minutes": zone.get('time_minutes', 0) for zone in hr_zones}
+
+    # 计算低强度（Z1+Z2）和高强度（Z3+Z4+Z5）比例
+    low_intensity_zones = ['Z1', 'Z2']
+    high_intensity_zones = ['Z3', 'Z4', 'Z5']
+
+    total_time = sum(zone.get('time_minutes', 0) for zone in hr_zones)
+
+    if total_time <= 0:
+        return zone_times
+
+    low_intensity_time = sum(
+        zone.get('time_minutes', 0) for zone in hr_zones
+        if zone.get('zone', '') in low_intensity_zones
+    )
+
+    high_intensity_time = sum(
+        zone.get('time_minutes', 0) for zone in hr_zones
+        if zone.get('zone', '') in high_intensity_zones
+    )
+
+    # 计算比例
+    low_intensity_ratio = low_intensity_time / total_time * 100
+    high_intensity_ratio = high_intensity_time / total_time * 100
+
+    intensity_balance = {
+        'low_intensity_ratio': round(low_intensity_ratio, 1),
+        'high_intensity_ratio': round(high_intensity_ratio, 1),
+        'intensity_balance_score': round(high_intensity_ratio / max(low_intensity_ratio, 1), 2)
+    }
+
+    # 合并所有指标
+    intensity_balance.update(zone_times)
+    return intensity_balance
+
+def calculate_pace_stability(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    计算配速稳定性指标
+
+    参数:
+        df: 包含活动数据的DataFrame
+
+    返回:
+        包含配速稳定性指标的字典
+    """
+    if 'pace' not in df.columns:
+        return {}
+
+    pace_series = pd.to_numeric(df['pace'], errors='coerce')
+    pace_series = pace_series.dropna()
+
+    if len(pace_series) < 2:
+        return {}
+
+    pace_mean = pace_series.mean()
+    pace_std = pace_series.std()
+    pace_cv = (pace_std / pace_mean * 100) if pace_mean > 0 else 0  # 变异系数（%）
+
+    # 计算配速区间分布
+    pace_bins = [0, 4, 5, 6, 7, 8, float('inf')]  # 分钟/公里区间
+    pace_labels = ['<4:00', '4:00-5:00', '5:00-6:00', '6:00-7:00', '7:00-8:00', '>8:00']
+
+    if len(pace_series) > 0:
+        # 使用pandas cut函数进行分箱
+        binned = pd.cut(pace_series, bins=pace_bins, labels=pace_labels, include_lowest=True)
+        pace_distribution = binned.value_counts(normalize=True).to_dict()
+
+        # 转换为百分比
+        pace_distribution_pct = {str(k): round(v * 100, 1) for k, v in pace_distribution.items()}
+    else:
+        pace_distribution_pct = {}
+
+    return {
+        'pace_std': round(pace_std, 2),  # 配速标准差
+        'pace_cv': round(pace_cv, 1),    # 配速变异系数（%）
+        'pace_distribution': pace_distribution_pct  # 配速分布
+    }
+
+def calculate_training_stress_score(trimp: float, total_time_minutes: float) -> float:
+    """
+    计算训练压力分数（Training Stress Score）
+    基于TRIMP的标准化分数
+
+    参数:
+        trimp: TRIMP训练负荷值
+        total_time_minutes: 总训练时间（分钟）
+
+    返回:
+        训练压力分数
+    """
+    if total_time_minutes <= 0:
+        return 0.0
+
+    # 标准化：每小时的TRIMP乘以时间因子
+    # 这是一个简化版本，实际TSS算法更复杂
+    trimp_per_hour = trimp / (total_time_minutes / 60)
+
+    # 基础TSS计算（简化）
+    # 假设中等强度1小时对应TSS=100
+    base_intensity = 50  # 中等强度的trimp_per_hour估计值
+
+    if base_intensity <= 0:
+        return 0.0
+
+    tss = (trimp_per_hour / base_intensity) * 100 * (total_time_minutes / 60)
+
+    return round(max(0, tss), 1)

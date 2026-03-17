@@ -79,6 +79,35 @@ export const analyzeActivity = async (file) => {
   }
 };
 
+export const analyzeMultipleActivities = async (files) => {
+  const formData = new FormData();
+
+  // 添加所有文件
+  files.forEach((file, index) => {
+    formData.append('files', file);
+  });
+
+  try {
+    const response = await api.post('/api/upload-multiple', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 120000, // 120秒超时，处理多个大文件
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          console.log(`上传进度: ${percentCompleted}%`);
+        }
+      },
+    });
+
+    return response;
+  } catch (error) {
+    console.error('分析多个活动失败:', error);
+    throw error;
+  }
+};
+
 export const getSampleData = async () => {
   try {
     const response = await api.get('/api/sample');
@@ -173,6 +202,20 @@ export const updateHrZones = async (zones) => {
     return response;
   } catch (error) {
     console.error('更新心率区间设置失败:', error);
+    throw error;
+  }
+};
+
+// AI智能问询
+export const aiConsultation = async (question, analysisData = null) => {
+  try {
+    const response = await api.post('/api/ai-consult', {
+      question,
+      analysis_data: analysisData
+    });
+    return response;
+  } catch (error) {
+    console.error('AI问询失败:', error);
     throw error;
   }
 };

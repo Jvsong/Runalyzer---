@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import os
+import re
 from typing import Dict, List, Optional, Any
 
 # 尝试导入可选的解析库
@@ -20,6 +21,58 @@ except ImportError:
     GPX_AVAILABLE = False
     print("警告: gpxpy 未安装，GPX文件支持受限")
 
+def validate_activity_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    验证活动数据的合理性
+
+    参数:
+        df: 活动数据DataFrame
+
+    返回:
+        验证和清理后的DataFrame
+    """
+    # 创建副本以避免修改原始数据
+    validated_df = df.copy()
+
+    # 验证心率数据（如果存在）
+    if 'heart_rate' in validated_df.columns:
+        # 转换心率列为数值类型
+        validated_df['heart_rate'] = pd.to_numeric(validated_df['heart_rate'], errors='coerce')
+        # 过滤不合理的心率值（20-250 bpm）
+        validated_df['heart_rate'] = validated_df['heart_rate'].where(validated_df['heart_rate'].between(20, 250), np.nan)
+
+    # 验证配速数据（如果存在）
+    if 'pace' in validated_df.columns:
+        validated_df['pace'] = pd.to_numeric(validated_df['pace'], errors='coerce')
+        # 过滤不合理的配速值（2-30 分钟/公里）
+        validated_df['pace'] = validated_df['pace'].where(validated_df['pace'].between(2, 30), np.nan)
+
+    # 验证速度数据（如果存在）
+    if 'speed' in validated_df.columns:
+        validated_df['speed'] = pd.to_numeric(validated_df['speed'], errors='coerce')
+        # 过滤不合理的速度值（0-30 km/h）
+        validated_df['speed'] = validated_df['speed'].where(validated_df['speed'].between(0, 30), np.nan)
+
+    # 验证步频数据（如果存在）
+    if 'cadence' in validated_df.columns:
+        validated_df['cadence'] = pd.to_numeric(validated_df['cadence'], errors='coerce')
+        # 过滤不合理的步频值（40-300 步/分钟）
+        validated_df['cadence'] = validated_df['cadence'].where(validated_df['cadence'].between(40, 300), np.nan)
+
+    # 验证海拔数据（如果存在）
+    if 'altitude' in validated_df.columns:
+        validated_df['altitude'] = pd.to_numeric(validated_df['altitude'], errors='coerce')
+        # 过滤不合理海拔值（-1000到9000米）
+        validated_df['altitude'] = validated_df['altitude'].where(validated_df['altitude'].between(-1000, 9000), np.nan)
+
+    # 填充缺失值（向前填充，然后向后填充）
+    validated_df = validated_df.ffill().bfill()
+
+    # 删除全部为NaN的行
+    validated_df = validated_df.dropna(how='all')
+
+    return validated_df
+
 def parse_activity_file(file_path: str) -> Dict[str, Any]:
     """
     解析活动文件，根据扩展名选择解析器
@@ -32,14 +85,30 @@ def parse_activity_file(file_path: str) -> Dict[str, Any]:
     """
     ext = os.path.splitext(file_path)[1].lower()
 
+    # 根据扩展名调用相应解析器
     if ext == '.fit':
-        return parse_fit_file(file_path)
+        activity_data = parse_fit_file(file_path)
     elif ext == '.gpx':
-        return parse_gpx_file(file_path)
+        activity_data = parse_gpx_file(file_path)
     elif ext == '.csv':
-        return parse_csv_file(file_path)
+        activity_data = parse_csv_file(file_path)
     else:
         raise ValueError(f"不支持的文件格式: {ext}")
+
+    # 验证和清理数据
+    if 'dataframe' in activity_data and not activity_data['dataframe'].empty:
+        validated_df = validate_activity_data(activity_data['dataframe'])
+        activity_data['dataframe'] = validated_df
+
+        # 更新元数据
+        if 'metadata' in activity_data:
+            activity_data['metadata']['data_points'] = len(validated_df)
+            # 更新数据可用性标志
+            activity_data['metadata']['has_hr'] = 'heart_rate' in validated_df.columns and not validated_df['heart_rate'].isna().all()
+            activity_data['metadata']['has_gps'] = 'latitude' in validated_df.columns and 'longitude' in validated_df.columns and not validated_df['latitude'].isna().all()
+            activity_data['metadata']['has_altitude'] = 'altitude' in validated_df.columns and not validated_df['altitude'].isna().all()
+
+    return activity_data
 
 def parse_fit_file(file_path: str) -> Dict[str, Any]:
     """
@@ -109,7 +178,7 @@ def parse_fit_file(file_path: str) -> Dict[str, Any]:
     # 计算配速 (分钟/公里)，如果速度数据可用
     paces = []
     if speeds:
-        paces = [60 / s if s and s > 0 else np.nan for s in speeds]
+        paces = [60 / s if s is not None and s > 0 else np.nan for s in speeds]
 
     # 创建DataFrame
     data = {
@@ -140,8 +209,8 @@ def parse_fit_file(file_path: str) -> Dict[str, Any]:
             'has_gps': 'latitude' in df.columns and 'longitude' in df.columns,
             'has_altitude': 'altitude' in df.columns,
             'timestamp_range': {
-                'start': df['timestamp'].iloc[0].isoformat() if len(df) > 0 else None,
-                'end': df['timestamp'].iloc[-1].isoformat() if len(df) > 0 else None
+                'start': df['timestamp'].iloc[0].isoformat() if len(df) > 0 and hasattr(df['timestamp'].iloc[0], 'isoformat') else None,
+                'end': df['timestamp'].iloc[-1].isoformat() if len(df) > 0 and hasattr(df['timestamp'].iloc[-1], 'isoformat') else None
             }
         }
     }
@@ -172,7 +241,7 @@ def extract_gpx_extension_data(point) -> Dict[str, Any]:
         ext_str = str(point.extensions)
 
         # 简单的心率提取逻辑（实际应用中可能需要更复杂的解析）
-        import re
+        # re已经在模块顶部导入
 
         # 尝试匹配心率模式
         hr_patterns = [
@@ -206,6 +275,12 @@ def extract_gpx_extension_data(point) -> Dict[str, Any]:
     except Exception:
         # 解析失败，返回默认值
         pass
+    finally:
+        # 调试输出
+        import os
+        if os.environ.get('DEBUG_GPX_PARSE'):
+            print(f"GPX扩展字符串: {ext_str}")
+            print(f"提取的心率: {data['heart_rate']}, 步频: {data['cadence']}")
 
     return data
 
@@ -240,7 +315,11 @@ def parse_gpx_file(file_path: str) -> Dict[str, Any]:
                 if point.latitude is None or point.longitude is None:
                     continue  # 跳过无效的GPS点
 
-                timestamps.append(point.time if point.time is not None else None)
+                # 跳过没有时间戳的点（需要时间戳计算速度和距离）
+                if point.time is None:
+                    continue
+
+                timestamps.append(point.time)
                 latitudes.append(point.latitude)
                 longitudes.append(point.longitude)
                 altitudes.append(point.elevation if point.elevation is not None else np.nan)
@@ -271,10 +350,8 @@ def parse_gpx_file(file_path: str) -> Dict[str, Any]:
         distances.append(distances[-1] + distance_km)
 
         # 计算速度 (km/h)
-        # 检查时间戳是否有效
-        if (i < len(timestamps) and timestamps[i] is not None and
-            i-1 < len(timestamps) and timestamps[i-1] is not None):
-
+        # 检查时间戳索引是否有效
+        if i < len(timestamps):
             try:
                 time_diff = (timestamps[i] - timestamps[i-1]).total_seconds() / 3600  # 小时
                 # 添加小阈值避免浮点精度问题
@@ -289,11 +366,9 @@ def parse_gpx_file(file_path: str) -> Dict[str, Any]:
             speeds.append(0)
 
     # 计算配速 (分钟/公里)
-    paces = [60 / s if s and s > 0 else np.nan for s in speeds]
+    paces = [60 / s if s is not None and s > 0 else np.nan for s in speeds]
 
-    # 心率数据在GPX中通常不可用，设置为NaN
-    heart_rates = [np.nan] * len(timestamps)
-    cadences = [np.nan] * len(timestamps)
+    # 注意：心率数据已从GPX扩展中提取（如果可用）
 
     # 创建DataFrame
     data = {
@@ -319,8 +394,8 @@ def parse_gpx_file(file_path: str) -> Dict[str, Any]:
             'has_gps': True,
             'has_altitude': True,
             'timestamp_range': {
-                'start': df['timestamp'].iloc[0].isoformat() if len(df) > 0 else None,
-                'end': df['timestamp'].iloc[-1].isoformat() if len(df) > 0 else None
+                'start': df['timestamp'].iloc[0].isoformat() if len(df) > 0 and hasattr(df['timestamp'].iloc[0], 'isoformat') else None,
+                'end': df['timestamp'].iloc[-1].isoformat() if len(df) > 0 and hasattr(df['timestamp'].iloc[-1], 'isoformat') else None
             }
         }
     }
@@ -336,10 +411,19 @@ def parse_csv_file(file_path: str) -> Dict[str, Any]:
         包含时间序列数据和元数据的字典
     """
     # 尝试不同的编码和分隔符
-    try:
-        df = pd.read_csv(file_path)
-    except UnicodeDecodeError:
-        df = pd.read_csv(file_path, encoding='latin1')
+    encodings = ['utf-8', 'utf-8-sig', 'latin1', 'gbk', 'gb2312', 'cp1252']
+    df = None
+
+    for encoding in encodings:
+        try:
+            df = pd.read_csv(file_path, encoding=encoding)
+            break  # 如果成功读取，跳出循环
+        except UnicodeDecodeError:
+            continue  # 尝试下一个编码
+
+    if df is None:
+        # 所有编码都失败
+        raise ValueError(f"无法读取CSV文件，尝试的编码: {', '.join(encodings)}")
 
     # 标准化列名（不区分大小写）
     column_mapping = {}
@@ -368,15 +452,45 @@ def parse_csv_file(file_path: str) -> Dict[str, Any]:
 
     # 处理时间戳列
     if 'timestamp' in df.columns:
+        # 尝试多种常见的时间戳格式
         try:
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-        except:
-            # 如果转换失败，保持原样
+            # 首先尝试自动解析
+            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+
+            # 检查转换成功率
+            converted_count = df['timestamp'].notna().sum()
+            total_count = len(df)
+
+            if converted_count == 0 and total_count > 0:
+                # 如果全部转换失败，尝试一些常见格式
+                common_formats = [
+                    '%Y-%m-%d %H:%M:%S',
+                    '%Y/%m/%d %H:%M:%S',
+                    '%d/%m/%Y %H:%M:%S',
+                    '%m/%d/%Y %H:%M:%S',
+                    '%Y-%m-%dT%H:%M:%S',
+                    '%Y-%m-%d %H:%M',
+                    '%H:%M:%S'
+                ]
+
+                for fmt in common_formats:
+                    try:
+                        df['timestamp'] = pd.to_datetime(df['timestamp'], format=fmt, errors='coerce')
+                        if df['timestamp'].notna().sum() > 0:
+                            break  # 找到可用的格式
+                    except:
+                        continue
+        except Exception as e:
+            # 转换失败，保持原样
+            print(f"时间戳转换失败: {e}")
             pass
 
     # 计算配速，如果速度数据可用但配速数据不可用
     if 'speed' in df.columns and 'pace' not in df.columns:
-        df['pace'] = 60 / df['speed']  # 分钟/公里
+        # 确保速度列是数值类型
+        df['speed'] = pd.to_numeric(df['speed'], errors='coerce')
+        # 安全计算配速，避免除零错误
+        df['pace'] = 60 / df['speed'].where(df['speed'] > 0, np.nan)  # 分钟/公里
 
     # 填充缺失值
     df = df.ffill().bfill()
@@ -396,8 +510,8 @@ def parse_csv_file(file_path: str) -> Dict[str, Any]:
             'has_gps': 'latitude' in df.columns and 'longitude' in df.columns,
             'has_altitude': 'altitude' in df.columns and not df['altitude'].isna().all(),
             'timestamp_range': {
-                'start': df['timestamp'].iloc[0].isoformat() if len(df) > 0 and 'timestamp' in df.columns else None,
-                'end': df['timestamp'].iloc[-1].isoformat() if len(df) > 0 and 'timestamp' in df.columns else None
+                'start': df['timestamp'].iloc[0].isoformat() if len(df) > 0 and 'timestamp' in df.columns and hasattr(df['timestamp'].iloc[0], 'isoformat') else None,
+                'end': df['timestamp'].iloc[-1].isoformat() if len(df) > 0 and 'timestamp' in df.columns and hasattr(df['timestamp'].iloc[-1], 'isoformat') else None
             }
         }
     }

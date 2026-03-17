@@ -10,7 +10,16 @@
       "Bash(git commit -m \"修复GPX解析：1. 添加时间戳None检查 2. 修复除零错误 3. 从GPX扩展提取心率数据 4. 改进速度计算逻辑\")",
       "Bash(git pull origin master --rebase)",
       "Bash(git stash pop)",
-      "Bash(git add .claude/settings.json)"
+      "Bash(git add .claude/settings.json)",
+      "Bash(git push origin master)",
+      "Bash(python -m pytest test_parser.py -v)",
+      "Bash(python test_parser.py)",
+      "Bash(python -m unittest test_parser.TestDataValidation.test_validate_heart_rate -v)",
+      "Bash(python -m unittest test_parser.TestGPXParser.test_gpx_extension_parsing -v)",
+      "Bash(set DEBUG_GPX_PARSE=1)",
+      "Bash(python test_analysis.py)",
+      "Bash(python -m pytest test_analysis.py -v)",
+      "Bash(git submodule:*)"
     ],
     "additionalDirectories": [
       "F:\\Desk\\garmin"
