@@ -4,7 +4,11 @@
       "Bash(git init)",
       "Bash(git remote add origin https://github.com/Jvsong/Sports-analysis.git)",
       "Bash(git fetch origin)",
-      "Bash(git add .)"
+      "Bash(git add .)",
+      "Bash(git commit -m \"初始提交：Runalyzer跑步训练分析工具基础版本\")",
+      "Bash(git add backend/activity_parser.py)",
+      "Bash(git commit -m \"修复GPX解析：1. 添加时间戳None检查 2. 修复除零错误 3. 从GPX扩展提取心率数据 4. 改进速度计算逻辑\")",
+      "Bash(git pull origin master --rebase)"
     ],
     "additionalDirectories": [
       "F:\\Desk\\garmin"
